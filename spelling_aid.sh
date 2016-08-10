@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#Author: Yuliang Zhou
+
 #functions
 
 print_menu(){
