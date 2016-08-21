@@ -48,12 +48,12 @@ public class SpellingGUI extends JFrame implements ActionListener{
 	private JTextArea _txtArea;
 	private JTextField _enterTxtField;
 	private JScrollPane _scroll;
-	private JTable _wordStatsTable;
 
+	private JTable _wordStatsTable;
 	private JFrame _statsFrame;
+	private TableModelAdapter _tableModelAdapter;
 
 	private SpellingStatsModel _data;
-	private TableModelAdapter _tableModelAdapter;
 
 	private File _hiddenFile = new File(".spellingData.ser");
 	private File _wordListFile = new File("wordlist");
@@ -84,7 +84,9 @@ public class SpellingGUI extends JFrame implements ActionListener{
 		JPanel display = new JPanel(new BorderLayout());
 		display.setBorder(new EmptyBorder(10,10,10,10));
 		_txtArea = new JTextArea("Welcome to the super awesome spelling quizz!\n",20,5);
-		_txtArea.setEditable(false);
+		_txtArea.setEditable(false);/*
+		 DefaultCaret caret = (DefaultCaret) _txtArea.getCaret();
+		 caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);*/
 		_scroll = new JScrollPane(_txtArea);
 		_scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		display.add(_scroll,BorderLayout.CENTER);
@@ -130,12 +132,26 @@ public class SpellingGUI extends JFrame implements ActionListener{
 	}
 
 
-	//When "Enter" key or _enterButton is pressed
+	/**
+	 * When "Enter" key or _enterButton is pressed
+	 */
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		String currentText = _enterTxtField.getText();
 
-		
+		_txtArea.append(currentText+"\n");
+
+		if(_data.testMode()){
+			String message = _data.testLogic(currentText);
+			_txtArea.append(message);
+			if(!_data.testMode()){//exist spelling mode
+				_newButton.setEnabled(true);
+				_reviewButton.setEnabled(true);
+				_showStatsButton.setEnabled(true);
+				_clearStatsButton.setEnabled(true);
+			}
+		}
+		_txtArea.setCaretPosition(_txtArea.getDocument().getLength());
 		//reset TextField
 		_enterTxtField.setText("");
 	}
@@ -147,33 +163,60 @@ public class SpellingGUI extends JFrame implements ActionListener{
 		_newButton.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				newTest();
+				_txtArea.append("===============START=================\n");
+				_txtArea.append("Starting new spelling quizz...\n");
+				_data.startNewTest();
+				String message = _data.testLogic("");
+				_txtArea.append(message);
+				_newButton.setEnabled(false);
+				_reviewButton.setEnabled(false);
+				_showStatsButton.setEnabled(false);
+				_clearStatsButton.setEnabled(false);
 			}
 		});
 
 		_reviewButton.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				festivalRead("Please spell dynamite.");
+				_txtArea.append("===============START=================\n");
+				_txtArea.append("Now reviewing mistakes...\n");
+				_data.startReviewTest();
+				String message = _data.testLogic("");
+				_txtArea.append(message);
+				if(_data.testMode()){//exist spelling mode
+					_newButton.setEnabled(false);
+					_reviewButton.setEnabled(false);
+					_showStatsButton.setEnabled(false);
+					_clearStatsButton.setEnabled(false);
+				}
 			}			
 		});
 
+		/**
+		 * Spelling Stats Model is sorted alphabetically before opening the JTable
+		 * view of the statistics.
+		 */
 		_showStatsButton.addActionListener(new ActionListener(){
-			@Override
+			//@Override
 			public void actionPerformed(ActionEvent e) {
 				_data.sortAlphabetically();
 				displayStatsTable();
 			}
 		});
 
+		/**
+		 * clears the failed list and resets all Mastered, Faulted, and Failed to 0
+		 */
 		_clearStatsButton.addActionListener(new ActionListener(){
-			@Override
+			//@Override
 			public void actionPerformed(ActionEvent e) {
-				_data.resetStats();
-				showMessage("Statistics successfullly cleared.");
+				clearHistory();
 			}
 		});
 
+		/**
+		 * Show hint, which should be cleared when JTextField is put into focus.
+		 */
 		_enterTxtField.addMouseListener(new MouseAdapter(){
 			@Override
 			public void mouseClicked(MouseEvent e){
@@ -189,39 +232,24 @@ public class SpellingGUI extends JFrame implements ActionListener{
 		_enterButton.addActionListener(this);
 	}
 
-
 	/**
-	 * 
+	 * Check if user wants to delete history before deleting. Display a message once successfully cleared.
 	 */
-	public void newTest(){
-		String[] testWords = _data.getThreeRandomWords();
-		for(int i=0;i<3;i++){
-			festivalRead(testWords[i]);
-			//wait for input
-			
-		}
-		
-	}
-
-	/**
-	 * Uses festival to read a message to the user.
-	 */
-	public void festivalRead(String message){
-		String cmd = "echo " + message + " | festival --tts";
-		ProcessBuilder builder = new ProcessBuilder("/bin/bash","-c",cmd);
-		try {
-			Process process = builder.start();
-		} catch (IOException e) {
-			e.printStackTrace();
+	public void clearHistory(){
+		int dialogResult = JOptionPane.showConfirmDialog (this, "Are you sure you want to clear your history?","Warning",JOptionPane.YES_NO_OPTION);
+		if(dialogResult == JOptionPane.YES_OPTION){
+			_data.resetStats();
+			JOptionPane.showMessageDialog(this, "Statistics successfullly cleared.");
 		}
 	}
 
 	/**
 	 * Creates a new pop-up frame to display a table view of current user's spelling statistics.
+	 * Table adapter is remade when "Show Stats" button is pressed to update table.
 	 */
 	public void displayStatsTable(){
 		_tableModelAdapter = new TableModelAdapter(_data);
-		if(_statsFrame != null){
+		if(_statsFrame != null){ // close old stats window
 			_statsFrame.dispose();
 		}
 		_statsFrame = new JFrame("Spelling Statistics");
@@ -229,30 +257,10 @@ public class SpellingGUI extends JFrame implements ActionListener{
 		JScrollPane scrollPaneForTable = new JScrollPane(_wordStatsTable);
 		scrollPaneForTable.setPreferredSize(new Dimension(300,150));
 		_statsFrame.getContentPane().add(scrollPaneForTable, BorderLayout.CENTER);
-		_statsFrame.setSize(400, 300);
+		_statsFrame.setSize(600, 300);
 		_statsFrame.setMinimumSize(new Dimension(300,200));
 		_statsFrame.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 		_statsFrame.setVisible(true);
-	}
-
-	/**
-	 * Reads each line of "wordlist" file and adds any new words to current word list object in SpellingStatsModel
-	 */
-	public void updateWordList(){
-		try {
-			FileReader fr = new FileReader(_wordListFile);
-			BufferedReader br = new BufferedReader(fr);
-			String line;
-			while((line = br.readLine())!=null){
-				_data.addNewWord(line);
-			}
-			br.close();
-		} catch (FileNotFoundException e) {
-			showMessage(e.getMessage());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
 	}
 
 	/**
@@ -278,7 +286,6 @@ public class SpellingGUI extends JFrame implements ActionListener{
 			System.out.println("new object created");
 		}
 		updateWordList();
-		System.out.println("testCounter READ: " + _data.testCounter);
 	}
 
 	/**
@@ -286,12 +293,11 @@ public class SpellingGUI extends JFrame implements ActionListener{
 	 * Called when main GUI frame is closed.
 	 */
 	private void writeData(){
-		System.out.println("testCounter WRITE: " + _data.testCounter);
 		if(!_hiddenFile.exists()){ //create hidden .ser file if it does not exist
 			try {
 				_hiddenFile.createNewFile();
 			} catch (IOException e) {
-				showMessage(e.getMessage());
+				JOptionPane.showMessageDialog(this, e.getMessage());
 			}
 		}
 		//write SpellingStatsModel object instance's data to the hidden file
@@ -310,16 +316,26 @@ public class SpellingGUI extends JFrame implements ActionListener{
 	}
 
 	/**
-	 * Display a pop-up message
-	 * @param message
+	 * Reads each line of "wordlist" file and adds any new words to current word list object in SpellingStatsModel
 	 */
-	public void showMessage(String message){
-		JOptionPane.showMessageDialog(this, message);
+	public void updateWordList(){
+		try {
+			FileReader fr = new FileReader(_wordListFile);
+			BufferedReader br = new BufferedReader(fr);
+			String line;
+			while((line = br.readLine())!=null){
+				_data.addNewWord(line);
+			}
+			br.close();
+		} catch (FileNotFoundException e) {
+			JOptionPane.showMessageDialog(this, e.getMessage());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
 	}
 
-
-
-
+	
 
 
 
