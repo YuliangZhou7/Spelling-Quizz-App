@@ -33,7 +33,7 @@ import javax.swing.border.EmptyBorder;
 
 
 /**
- * 
+ * Main GUI frame built using Swing.
  * @author Yuliang Zhou yzho746
  *
  */
