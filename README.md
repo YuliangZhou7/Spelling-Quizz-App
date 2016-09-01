@@ -10,3 +10,4 @@ concurrency as of yet. Uses linux process to read words outloud for user
 to hear.
 
 
+add more stuff here
