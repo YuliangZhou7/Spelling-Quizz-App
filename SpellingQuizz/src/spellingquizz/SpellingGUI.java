@@ -34,6 +34,7 @@ import javax.swing.border.EmptyBorder;
 
 /**
  * Main GUI frame built using Swing.
+ * TODO: only display words that have been attempted!!!
  * @author Yuliang Zhou yzho746
  *
  */
